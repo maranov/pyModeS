@@ -60,6 +60,8 @@ jobs:
             export POETRY_HOME=./.venv
             python3 -m venv $POETRY_HOME
             $POETRY_HOME/bin/pip install "poetry==${{ env.POETRY_VERSION }}"
+            $POETRY_HOME/bin/poetry config virtualenvs.create true
+            $POETRY_HOME/bin/poetry config virtualenvs.in-project true
             $POETRY_HOME/bin/poetry --version
             $POETRY_HOME/bin/poetry run python -c "import sys; import platform; print(sys.version); print(platform.uname().machine)"
             $POETRY_HOME/bin/poetry install
