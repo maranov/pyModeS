@@ -59,14 +59,15 @@ jobs:
           run: |
             export POETRY_HOME=./.venv
             python3 -m venv $POETRY_HOME
-            $POETRY_HOME/bin/pip install "poetry==${{ env.POETRY_VERSION }}"
-            $POETRY_HOME/bin/poetry config virtualenvs.create true
-            $POETRY_HOME/bin/poetry config virtualenvs.in-project true
-            $POETRY_HOME/bin/poetry --version
-            $POETRY_HOME/bin/poetry run python -c "import sys; import platform; print(sys.version); print(platform.uname().machine)"
-            $POETRY_HOME/bin/poetry install
-            $POETRY_HOME/bin/poetry run mypy pyModeS
-            $POETRY_HOME/bin/poetry run pytest tests --cov --cov-report term-missing
+            source $POETRY_HOME/bin/activate
+            pip install "poetry==${{ env.POETRY_VERSION }}"
+            poetry config virtualenvs.create true
+            poetry config virtualenvs.in-project true
+            poetry --version
+            poetry run python -c "import sys; import platform; print(sys.version); print(platform.uname().machine)"
+            poetry install
+            poetry run mypy pyModeS
+            poetry run pytest tests --cov --cov-report term-missing
 
       # TODO: Works?
       - name: Upload coverage to Codecov
