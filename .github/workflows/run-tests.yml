@@ -9,7 +9,68 @@ env:
   POETRY_VERSION: "1.3.1"
 
 jobs:
-  # TODO: Original job + an AArch64-specific job.
+  deploy:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+
+    env:
+      PYTHON_VERSION: ${{ matrix.python-version }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # virtualenv cache should depends on OS, Python version and `poetry.lock` (and optionally workflow files).
+      - name: Cache Packages
+        uses: actions/cache@v3
+        if: ${{ !startsWith(runner.os, 'windows') }}
+        with:
+          path: |
+            ~/.local
+            .venv
+          key: poetry-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Add poetry to windows path
+        if: "startsWith(runner.os, 'windows')"
+        run: |
+          echo "C:\Users\runneradmin\.local\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install and configure Poetry
+        uses: snok/install-poetry@v1.3.3
+        with:
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Display Python version
+        run: poetry run python -c "import sys; print(sys.version)"
+
+      - name: Install dependencies
+        run: |
+          poetry install
+
+      - name: Type checking
+        run: |
+          poetry run mypy pyModeS
+
+      - name: Run tests
+        run: |
+          poetry run pytest tests --cov --cov-report term-missing
+
+      - name: Upload coverage to Codecov
+        if: ${{ github.event_name != 'pull_request_target' }}
+        uses: codecov/codecov-action@v3
+        with:
+          env_vars: PYTHON_VERSION
+
+  # "deploy" job variant for other architectures.
   deploy_other_archs:
     runs-on: ubuntu-latest
     strategy:
@@ -56,8 +117,9 @@ jobs:
           distro: ${{ matrix.distro }}
           # Not required, but speeds up builds
           githubToken: ${{ github.token }}
+          # Install includes Python and other OS dependencies.
           install: |
-            apt-get -q update && apt-get -q install -y python3 python3-venv python3-pip
+            apt-get -q update && apt-get -q install -y python3 python3-venv python3-pip libffi-dev
           # WORKAROUND: Using --no-ansi to avoid a bug in headless environments, see <https://github.com/python-poetry/poetry/issues/7184>.
           run: |
             export POETRY_HOME=./.venv
