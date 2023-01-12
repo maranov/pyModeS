@@ -56,6 +56,7 @@ jobs:
             apt-get -q update -y && apt-get -q install -y python3 python3-venv python3-pip
           # TODO: More caching?
           # TODO: cov-report needs to be a volume?
+          # TODO: A temporary --no-ansi from <https://github.com/python-poetry/poetry/issues/7184>.
           run: |
             export POETRY_HOME=./.venv
             python3 -m venv $POETRY_HOME
@@ -65,7 +66,7 @@ jobs:
             poetry config virtualenvs.in-project true
             poetry --version
             poetry run python -c "import sys; import platform; print(sys.version); print(platform.uname().machine)"
-            poetry install
+            poetry install --no-ansi
             poetry run mypy pyModeS
             poetry run pytest tests --cov --cov-report term-missing
 
