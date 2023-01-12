@@ -10,67 +10,67 @@ env:
 
 jobs:
   # TODO: Original job + an AArch64-specific job.
-  deploy_aarch64:
+  deploy_other_archs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        distro:
-          - ubuntu22.04  # Python 3.10
-          # TODO: ubuntu20.04 (Python 3.8), ideally more.
-        python-version: ["3.10"]
-        arch:
-          - aarch64
+        include:
+          - arch: aarch64
+            distro: ubuntu22.04
+            python-version: "3.10"
+          - arch: aarch64
+            distro: ubuntu20.04
+            python-version: "3.8"
+          - arch: armv7
+            distro: ubuntu22.04
+            python-version: "3.10"
+          - arch: armv7
+            distro: ubuntu20.04
+            python-version: "3.8"
 
     env:
-      # TODO: Review.
       PYTHON_VERSION: ${{ matrix.python-version }}
 
     steps:
       - uses: actions/checkout@v2
 
-      # TODO: Disabled for now. Re-enable and review.
-      # virtualenv cache should depends on OS, Python version and `poetry.lock` (and optionally workflow files).
-      # - name: Cache Packages
-      #   uses: actions/cache@v3
-      #   # if: ${{ !startsWith(runner.os, 'windows') }}
-      #   with:
-      #     path: |
-      #       ~/.local
-      #       .venv
-      #     key: poetry-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}
+      # virtualenv cache should depends on OS, architecture, Python version and `poetry.lock` (and optionally workflow files).
+      - name: Cache Packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.local
+            .venv
+          key: poetry-${{ runner.distro }}-${{ runner.arch }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}
 
-      - name: Install and configure Python & Poetry
-        #uses: snok/install-poetry@v1.3.3
+      - name: Setup and test
+        # Perform the following within a platform/architecture specific container:
+        # * Install and configure Poetry
+        # * Display Python version and architecture
+        # * Install dependencies
+        # * Type checking
+        # * Run tests
         uses: uraimo/run-on-arch-action@v2
-        # with:
-        #   version:
-        #   virtualenvs-create: true
-        #   virtualenvs-in-project: true
         with:
           arch: ${{ matrix.arch }}
           distro: ${{ matrix.distro }}
           # Not required, but speeds up builds
           githubToken: ${{ github.token }}
-          # TODO: Less verbosity/progress bars (also pip/poetry).
           install: |
-            apt-get -q update -y && apt-get -q install -y python3 python3-venv python3-pip
-          # TODO: More caching?
-          # TODO: cov-report needs to be a volume?
-          # TODO: A temporary --no-ansi from <https://github.com/python-poetry/poetry/issues/7184>.
+            apt-get -q update && apt-get -q install -y python3 python3-venv python3-pip
+          # WORKAROUND: Using --no-ansi to avoid a bug in headless environments, see <https://github.com/python-poetry/poetry/issues/7184>.
           run: |
             export POETRY_HOME=./.venv
             python3 -m venv $POETRY_HOME
             source $POETRY_HOME/bin/activate
-            pip install "poetry==${{ env.POETRY_VERSION }}"
+            pip install --progress-bar=off "poetry==${{ env.POETRY_VERSION }}"
             poetry config virtualenvs.create true
             poetry config virtualenvs.in-project true
-            poetry --version
-            poetry run python -c "import sys; import platform; print(sys.version); print(platform.uname().machine)"
+            poetry run python -c "import sys; import platform; print(sys.version + ' (' + platform.uname().machine + ')')"
             poetry install --no-ansi
             poetry run mypy pyModeS
             poetry run pytest tests --cov --cov-report term-missing
 
-      # TODO: Works?
       - name: Upload coverage to Codecov
         if: ${{ github.event_name != 'pull_request_target' }}
         uses: codecov/codecov-action@v3
